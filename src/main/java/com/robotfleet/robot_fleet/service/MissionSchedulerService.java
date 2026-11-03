@@ -45,10 +45,12 @@ public class MissionSchedulerService {
         Instant now = Instant.now();
         Instant heartbeatCutoff =
                 now.minusSeconds(HEARTBEAT_TIMEOUT_SECONDS);
-
         List<Mission> pendingMissions =
-                missionRepository.findPendingMissionsForScheduling(
-                        MissionStatus.PENDING);
+                new ArrayList<>(
+                        missionRepository.findPendingMissionsForScheduling(
+                                MissionStatus.PENDING
+                        )
+                );
 
         pendingMissions.sort(
                 Comparator
