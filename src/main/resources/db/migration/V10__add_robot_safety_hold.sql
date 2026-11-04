@@ -1,0 +1,8 @@
+
+ALTER TABLE robots
+ADD COLUMN safety_hold BOOLEAN NOT NULL DEFAULT FALSE;
+
+
+UPDATE robots
+SET safety_hold = TRUE
+WHERE status = 'OFFLINE';

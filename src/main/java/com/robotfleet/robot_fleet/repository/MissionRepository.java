@@ -2,6 +2,7 @@
 package com.robotfleet.robot_fleet.repository;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -28,4 +29,12 @@ public interface MissionRepository extends JpaRepository<Mission, UUID>,
         """)
     List<Mission> findPendingMissionsForScheduling(
             @Param("status") MissionStatus status);
+    
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+        SELECT m FROM Mission m
+        WHERE m.id = :missionId
+        """)
+    Optional<Mission> findByIdForRecovery(
+            @Param("missionId") UUID missionId);
 }

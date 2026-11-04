@@ -3,7 +3,9 @@ package com.robotfleet.robot_fleet.repository;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
+
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -37,7 +39,7 @@ public interface RobotRepository extends JpaRepository<Robot, UUID> {
     List<Robot> findByLastHeartbeatIsNullOrLastHeartbeatBefore(
             Instant cutoff);
 
-    
+  
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
         SELECT r FROM Robot r
@@ -45,6 +47,7 @@ public interface RobotRepository extends JpaRepository<Robot, UUID> {
           AND r.status = :requiredStatus
           AND r.batteryPercentage >= :minimumBattery
           AND r.currentMissionId IS NULL
+          AND r.safetyHold = false
           AND r.lastHeartbeat >= :heartbeatCutoff
           AND r.lastHeartbeat <= :currentTime
         ORDER BY r.id
@@ -55,4 +58,34 @@ public interface RobotRepository extends JpaRepository<Robot, UUID> {
             @Param("minimumBattery") int minimumBattery,
             @Param("heartbeatCutoff") Instant heartbeatCutoff,
             @Param("currentTime") Instant currentTime);
+
+    
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT r FROM Robot r WHERE r.id = :robotId")
+    Optional<Robot> findByIdForHeartbeat(
+            @Param("robotId") UUID robotId);
+    
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+        SELECT r FROM Robot r
+        WHERE r.lastHeartbeat < :cutoff
+          AND r.status IN (
+              com.robotfleet.robot_fleet.RobotStatus.IDLE,
+              com.robotfleet.robot_fleet.RobotStatus.BUSY,
+              com.robotfleet.robot_fleet.RobotStatus.CHARGING
+          )
+        ORDER BY r.id
+        """)
+    List<Robot> findStaleRobotsForRecovery(
+            @Param("cutoff") Instant cutoff);
+    
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+        SELECT r FROM Robot r
+        WHERE r.id = :robotId
+        """)
+    Optional<Robot> findByIdForReconciliation(
+            @Param("robotId") UUID robotId);
+    
 }

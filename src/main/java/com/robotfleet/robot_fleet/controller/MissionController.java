@@ -168,12 +168,13 @@ public class MissionController {
             @PathVariable UUID missionId,
             @Valid @RequestBody MissionCompleteRequest request) {
 
-        Mission mission = missionService.completeMission(
-                missionId,
-                request.getRobotId(),
-                request.getActor(),
-                request.getReason()
-        );
+    	Mission mission = missionService.completeMission(
+    	        missionId,
+    	        request.getRobotId(),
+    	        request.getAssignmentGeneration(),
+    	        request.getActor(),
+    	        request.getReason()
+    	);
 
         return new MissionResponse(mission);
     }

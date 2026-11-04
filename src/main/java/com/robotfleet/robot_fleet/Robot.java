@@ -47,9 +47,13 @@ public class Robot {
     
     @Column(name = "current_session_id")
     private UUID currentSessionId;
-
+    
+    @Column(name = "last_heartbeat_sequence", nullable = false)
+    private long lastHeartbeatSequence = 0;
     public Robot() {
     }
+    @Column(name = "safety_hold", nullable = false)
+    private boolean safetyHold = false;
 
     public Robot(UUID id, String name, RobotType type,
             int batteryPercentage, double locationX,
@@ -147,5 +151,20 @@ public class Robot {
 
     public void setCurrentSessionId(UUID currentSessionId) {
         this.currentSessionId = currentSessionId;
+    }
+    
+    public long getLastHeartbeatSequence() {
+        return lastHeartbeatSequence;
+    }
+
+    public void setLastHeartbeatSequence(long lastHeartbeatSequence) {
+        this.lastHeartbeatSequence = lastHeartbeatSequence;
+    }
+    public boolean isSafetyHold() {
+        return safetyHold;
+    }
+
+    public void setSafetyHold(boolean safetyHold) {
+        this.safetyHold = safetyHold;
     }
 }

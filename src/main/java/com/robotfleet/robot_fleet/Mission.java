@@ -54,6 +54,9 @@ public class Mission {
     @JoinColumn(name = "assigned_robot_id")
     private Robot assignedRobot;
 
+    @Column(name = "assignment_generation", nullable = false)
+    private long assignmentGeneration = 0;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -153,6 +156,14 @@ public class Mission {
 
     public void setAssignedRobot(Robot assignedRobot) {
         this.assignedRobot = assignedRobot;
+    }
+
+    public long getAssignmentGeneration() {
+        return assignmentGeneration;
+    }
+
+    public void setAssignmentGeneration(long assignmentGeneration) {
+        this.assignmentGeneration = assignmentGeneration;
     }
 
     public Instant getCreatedAt() {

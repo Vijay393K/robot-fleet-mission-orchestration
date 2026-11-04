@@ -2,10 +2,15 @@ package com.robotfleet.robot_fleet.controller;
 
 
 import com.robotfleet.robot_fleet.Robot;
+
 import com.robotfleet.robot_fleet.RobotStatus;
 import com.robotfleet.robot_fleet.RobotType;
 import com.robotfleet.robot_fleet.repository.RobotRepository;
 import com.robotfleet.robot_fleet.service.RobotService;
+
+
+import com.robotfleet.robot_fleet.dto.HeartbeatRequest;
+import com.robotfleet.robot_fleet.service.HeartbeatService;
 
 import java.time.Instant;
 import java.util.Map;
@@ -27,20 +32,29 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.robotfleet.robot_fleet.dto.RobotReconciliationRequest;
+import com.robotfleet.robot_fleet.service.RobotReconciliationService;
+
 
 @RestController
 public class RobotController {
 
     private final RobotRepository robotRepository;
     private final RobotService robotService;
-
+    private final HeartbeatService heartbeatService;
+    private final RobotReconciliationService reconciliationService;
+    
     public RobotController(
             RobotRepository robotRepository,
-            RobotService robotService) {
+            RobotService robotService,
+            HeartbeatService heartbeatService,
+            RobotReconciliationService reconciliationService) {
+
         this.robotRepository = robotRepository;
         this.robotService = robotService;
+        this.heartbeatService = heartbeatService;
+        this.reconciliationService = reconciliationService;
     }
-
     @GetMapping("/")
     public String home() {
         return "Robot fleet mission orchestration is running.";
@@ -143,5 +157,37 @@ public class RobotController {
     @GetMapping("/api/robots/inactive")
     public List<Robot> getInactiveRobots() {
         return robotService.getInactiveRobots();
+    }
+    @PostMapping("/api/v1/robots/{robotId}/heartbeat")
+    public Map<String, Object> receiveHeartbeat(
+            @PathVariable UUID robotId,
+            @RequestBody HeartbeatRequest request) {
+
+        Robot robot = heartbeatService.processHeartbeat(
+                robotId,
+                request.sequenceNumber());
+
+        return Map.of(
+                "message", "Heartbeat received successfully",
+                "robotId", robot.getId(),
+                "sequenceNumber", robot.getLastHeartbeatSequence(),
+                "lastHeartbeat", robot.getLastHeartbeat(),
+                "status", robot.getStatus()
+        );
+    }
+    @PostMapping("/api/v1/robots/{robotId}/reconcile")
+    public Map<String, Object> reconcileRobot(
+            @PathVariable UUID robotId,
+            @RequestBody RobotReconciliationRequest request) {
+
+        Robot robot = reconciliationService.reconcileRobot(
+                robotId, request);
+
+        return Map.of(
+                "message", "Robot safety reconciliation completed",
+                "robotId", robot.getId(),
+                "status", robot.getStatus(),
+                "safetyHold", robot.isSafetyHold()
+        );
     }
 }

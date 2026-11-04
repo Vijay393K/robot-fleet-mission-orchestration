@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,8 +44,10 @@ public class MissionSchedulerService {
     public List<Mission> executeScheduling() {
 
         Instant now = Instant.now();
+
         Instant heartbeatCutoff =
                 now.minusSeconds(HEARTBEAT_TIMEOUT_SECONDS);
+
         List<Mission> pendingMissions =
                 new ArrayList<>(
                         missionRepository.findPendingMissionsForScheduling(
@@ -90,6 +93,10 @@ public class MissionSchedulerService {
 
             MissionStatus previousStatus = mission.getStatus();
 
+            mission.setAssignmentGeneration(
+                    mission.getAssignmentGeneration() + 1
+            );
+
             mission.setAssignedRobot(selectedRobot);
             mission.setStatus(MissionStatus.ASSIGNED);
 
@@ -97,6 +104,7 @@ public class MissionSchedulerService {
             selectedRobot.setCurrentMissionId(mission.getId());
 
             robotRepository.save(selectedRobot);
+
             Mission savedMission = missionRepository.save(mission);
 
             recordMissionEvent(
@@ -122,7 +130,7 @@ public class MissionSchedulerService {
 
         MissionEvent event = new MissionEvent();
 
-        event.setId(java.util.UUID.randomUUID());
+        event.setId(UUID.randomUUID());
         event.setMissionId(mission.getId());
         event.setPreviousStatus(previousStatus);
         event.setNewStatus(newStatus);
