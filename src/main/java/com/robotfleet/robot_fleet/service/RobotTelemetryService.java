@@ -3,11 +3,12 @@ package com.robotfleet.robot_fleet.service;
 
 import java.time.Instant;
 import java.util.List;
+import org.springframework.transaction.annotation.Transactional;
+
 import java.util.UUID;
 import com.robotfleet.robot_fleet.RobotStatus;
 
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import com.robotfleet.robot_fleet.Robot;
 import com.robotfleet.robot_fleet.RobotTelemetry;
@@ -130,5 +131,9 @@ public class RobotTelemetryService {
         return telemetryRepository
                 .findByRobot_IdAndTimestampBetweenOrderByTimestampAsc(
                         robotId, start, end);
+    }
+    @Transactional(readOnly = true)
+    public List<RobotTelemetry> getLatestTelemetryForEachRobot() {
+        return telemetryRepository.findLatestTelemetryForEachRobot();
     }
 }

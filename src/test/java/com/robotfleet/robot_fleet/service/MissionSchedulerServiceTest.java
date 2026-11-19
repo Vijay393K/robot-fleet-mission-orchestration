@@ -10,6 +10,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import com.robotfleet.robot_fleet.MissionStatus;
+import com.robotfleet.robot_fleet.repository.MissionAssignmentRepository;
 import com.robotfleet.robot_fleet.repository.MissionEventRepository;
 import com.robotfleet.robot_fleet.repository.MissionRepository;
 import com.robotfleet.robot_fleet.repository.RobotRepository;
@@ -19,19 +20,23 @@ class MissionSchedulerServiceTest {
     private MissionRepository missionRepository;
     private RobotRepository robotRepository;
     private MissionEventRepository missionEventRepository;
+    private MissionAssignmentRepository missionAssignmentRepository;
 
     private MissionSchedulerService schedulerService;
 
     @BeforeEach
     void setUp() {
+
         missionRepository = mock(MissionRepository.class);
         robotRepository = mock(RobotRepository.class);
         missionEventRepository = mock(MissionEventRepository.class);
+        missionAssignmentRepository = mock(MissionAssignmentRepository.class);
 
         schedulerService = new MissionSchedulerService(
                 missionRepository,
                 robotRepository,
-                missionEventRepository
+                missionEventRepository,
+                missionAssignmentRepository
         );
     }
 
@@ -53,5 +58,6 @@ class MissionSchedulerServiceTest {
 
         verifyNoInteractions(robotRepository);
         verifyNoInteractions(missionEventRepository);
+        verifyNoInteractions(missionAssignmentRepository);
     }
 }

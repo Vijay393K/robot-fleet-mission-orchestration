@@ -14,6 +14,8 @@ import com.robotfleet.robot_fleet.MissionStatus;
 import com.robotfleet.robot_fleet.Robot;
 import com.robotfleet.robot_fleet.RobotStatus;
 import com.robotfleet.robot_fleet.dto.RobotReconciliationRequest;
+import com.robotfleet.robot_fleet.entity.MissionAssignment;
+import com.robotfleet.robot_fleet.repository.MissionAssignmentRepository;
 import com.robotfleet.robot_fleet.repository.MissionEventRepository;
 import com.robotfleet.robot_fleet.repository.MissionRepository;
 import com.robotfleet.robot_fleet.repository.RobotRepository;
@@ -24,15 +26,18 @@ public class RobotReconciliationService {
     private final RobotRepository robotRepository;
     private final MissionRepository missionRepository;
     private final MissionEventRepository missionEventRepository;
+    private final MissionAssignmentRepository missionAssignmentRepository;
 
     public RobotReconciliationService(
             RobotRepository robotRepository,
             MissionRepository missionRepository,
-            MissionEventRepository missionEventRepository) {
+            MissionEventRepository missionEventRepository,
+            MissionAssignmentRepository missionAssignmentRepository) {
 
         this.robotRepository = robotRepository;
         this.missionRepository = missionRepository;
         this.missionEventRepository = missionEventRepository;
+        this.missionAssignmentRepository = missionAssignmentRepository;
     }
 
     @Transactional
@@ -94,6 +99,18 @@ public class RobotReconciliationService {
                         HttpStatus.CONFLICT,
                         "Mission assignment does not match this robot");
             }
+
+            MissionAssignment activeAssignment = missionAssignmentRepository
+                    .findByMission_IdAndEndedAtIsNull(missionId)
+                    .orElseThrow(() -> new ResponseStatusException(
+                            HttpStatus.CONFLICT,
+                            "Active mission assignment history could not be found"));
+
+            activeAssignment.endAssignment(
+                    Instant.now(),
+                    "ROBOT_RECONCILED");
+
+            missionAssignmentRepository.save(activeAssignment);
 
             MissionStatus previousStatus = mission.getStatus();
 

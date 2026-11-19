@@ -22,6 +22,10 @@ public class MissionResponse {
     private Instant createdAt;
     private Instant updatedAt;
 
+    
+    public MissionResponse() {
+    }
+
     public MissionResponse(Mission mission) {
 
         this.id = mission.getId();
@@ -48,35 +52,71 @@ public class MissionResponse {
         return id;
     }
 
+    public void setId(UUID id) {
+        this.id = id;
+    }
+
     public MissionType getMissionType() {
         return missionType;
+    }
+
+    public void setMissionType(MissionType missionType) {
+        this.missionType = missionType;
     }
 
     public MissionPriority getPriority() {
         return priority;
     }
 
+    public void setPriority(MissionPriority priority) {
+        this.priority = priority;
+    }
+
     public RobotType getRequiredRobotType() {
         return requiredRobotType;
+    }
+
+    public void setRequiredRobotType(RobotType requiredRobotType) {
+        this.requiredRobotType = requiredRobotType;
     }
 
     public MissionStatus getStatus() {
         return status;
     }
 
+    public void setStatus(MissionStatus status) {
+        this.status = status;
+    }
+
     public MissionRequest.Location getPickupLocation() {
         return pickupLocation;
+    }
+
+    public void setPickupLocation(MissionRequest.Location pickupLocation) {
+        this.pickupLocation = pickupLocation;
     }
 
     public MissionRequest.Location getDropLocation() {
         return dropLocation;
     }
 
+    public void setDropLocation(MissionRequest.Location dropLocation) {
+        this.dropLocation = dropLocation;
+    }
+
     public Instant getCreatedAt() {
         return createdAt;
     }
 
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
+    }
+
     public Instant getUpdatedAt() {
         return updatedAt;
+    }
+
+    public void setUpdatedAt(Instant updatedAt) {
+        this.updatedAt = updatedAt;
     }
 }

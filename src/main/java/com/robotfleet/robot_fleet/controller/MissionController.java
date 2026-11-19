@@ -4,6 +4,12 @@ package com.robotfleet.robot_fleet.controller;
 import jakarta.validation.Valid;
 import java.util.List;
 
+import org.springframework.web.bind.annotation.RequestHeader;
+import com.robotfleet.robot_fleet.service.IdempotencyService;
+
+
+import com.robotfleet.robot_fleet.service.MissionAssignmentService;
+import com.robotfleet.robot_fleet.dto.MissionAssignmentResponse;
 import com.robotfleet.robot_fleet.MissionEvent;
 import com.robotfleet.robot_fleet.dto.MissionEventResponse;
 import java.util.UUID;
@@ -41,22 +47,36 @@ import com.robotfleet.robot_fleet.dto.MissionStartRequest;
 @RequestMapping("/api/v1/missions")
 public class MissionController {
 
-    private final MissionService missionService;
+	private final MissionService missionService;
+	private final IdempotencyService idempotencyService;
+	private final MissionAssignmentService missionAssignmentService;
+	
+	public MissionController(
+	        MissionService missionService,
+	        IdempotencyService idempotencyService,
+	        MissionAssignmentService missionAssignmentService) {
 
-    public MissionController(MissionService missionService) {
-        this.missionService = missionService;
-    }
+	    this.missionService = missionService;
+	    this.idempotencyService = idempotencyService;
+	    this.missionAssignmentService = missionAssignmentService;
+	}
+	@PostMapping
+	public ResponseEntity<MissionResponse> createMission(
+	        @RequestHeader("Idempotency-Key") String idempotencyKey,
+	        @Valid @RequestBody MissionRequest request) {
 
-    @PostMapping
-    public ResponseEntity<MissionResponse> createMission(
-            @Valid @RequestBody MissionRequest request) {
-
-        Mission mission = missionService.createMission(request);
-
-        MissionResponse response = new MissionResponse(mission);
-
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
-    }
+	    return idempotencyService.execute(
+	            "MISSION_CREATE",
+	            idempotencyKey,
+	            request,
+	            MissionResponse.class,
+	            HttpStatus.CREATED,
+	            () -> new MissionResponse(
+	                    missionService.createMission(request)
+	            )
+	    );
+	}
+	
     @GetMapping("/{missionId}")
     public ResponseEntity<MissionResponse> getMission(
             @PathVariable UUID missionId) {
@@ -149,34 +169,49 @@ public class MissionController {
         return new MissionResponse(mission);
     }
     @PutMapping("/{missionId}/start")
-    public MissionResponse startMission(
+    public ResponseEntity<MissionResponse> startMission(
             @PathVariable UUID missionId,
+            @RequestHeader("Idempotency-Key") String idempotencyKey,
             @Valid @RequestBody MissionStartRequest request) {
 
-        Mission mission = missionService.startMission(
-                missionId,
-                request.getRobotId(),
-                request.getActor(),
-                request.getReason()
+        return idempotencyService.execute(
+                "MISSION_START:" + missionId,
+                idempotencyKey,
+                request,
+                MissionResponse.class,
+                HttpStatus.OK,
+                () -> new MissionResponse(
+                        missionService.startMission(
+                                missionId,
+                                request.getRobotId(),
+                                request.getActor(),
+                                request.getReason()
+                        )
+                )
         );
-
-        return new MissionResponse(mission);
     }
-    
     @PutMapping("/{missionId}/complete")
-    public MissionResponse completeMission(
+    public ResponseEntity<MissionResponse> completeMission(
             @PathVariable UUID missionId,
+            @RequestHeader("Idempotency-Key") String idempotencyKey,
             @Valid @RequestBody MissionCompleteRequest request) {
 
-    	Mission mission = missionService.completeMission(
-    	        missionId,
-    	        request.getRobotId(),
-    	        request.getAssignmentGeneration(),
-    	        request.getActor(),
-    	        request.getReason()
-    	);
-
-        return new MissionResponse(mission);
+        return idempotencyService.execute(
+                "MISSION_COMPLETE:" + missionId,
+                idempotencyKey,
+                request,
+                MissionResponse.class,
+                HttpStatus.OK,
+                () -> new MissionResponse(
+                        missionService.completeMission(
+                                missionId,
+                                request.getRobotId(),
+                                request.getAssignmentGeneration(),
+                                request.getActor(),
+                                request.getReason()
+                        )
+                )
+        );
     }
     @GetMapping("/robots/{robotId}/missions")
     public List<MissionResponse> getMissionsByRobot(
@@ -186,5 +221,13 @@ public class MissionController {
                 .stream()
                 .map(MissionResponse::new)
                 .toList();
+    }
+    @GetMapping("/{missionId}/assignments")
+    public ResponseEntity<List<MissionAssignmentResponse>> getMissionAssignmentHistory(
+            @PathVariable UUID missionId) {
+
+        return ResponseEntity.ok(
+                missionAssignmentService.getMissionAssignmentHistory(missionId)
+        );
     }
 }

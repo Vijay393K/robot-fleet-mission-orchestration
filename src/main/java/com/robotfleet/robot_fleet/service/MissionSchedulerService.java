@@ -12,10 +12,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.robotfleet.robot_fleet.Mission;
 import com.robotfleet.robot_fleet.MissionEvent;
-import com.robotfleet.robot_fleet.MissionPriority;
 import com.robotfleet.robot_fleet.MissionStatus;
 import com.robotfleet.robot_fleet.Robot;
 import com.robotfleet.robot_fleet.RobotStatus;
+import com.robotfleet.robot_fleet.entity.MissionAssignment;
+import com.robotfleet.robot_fleet.repository.MissionAssignmentRepository;
 import com.robotfleet.robot_fleet.repository.MissionEventRepository;
 import com.robotfleet.robot_fleet.repository.MissionRepository;
 import com.robotfleet.robot_fleet.repository.RobotRepository;
@@ -29,15 +30,18 @@ public class MissionSchedulerService {
     private final MissionRepository missionRepository;
     private final RobotRepository robotRepository;
     private final MissionEventRepository missionEventRepository;
+    private final MissionAssignmentRepository missionAssignmentRepository;
 
     public MissionSchedulerService(
             MissionRepository missionRepository,
             RobotRepository robotRepository,
-            MissionEventRepository missionEventRepository) {
+            MissionEventRepository missionEventRepository,
+            MissionAssignmentRepository missionAssignmentRepository) {
 
         this.missionRepository = missionRepository;
         this.robotRepository = robotRepository;
         this.missionEventRepository = missionEventRepository;
+        this.missionAssignmentRepository = missionAssignmentRepository;
     }
 
     @Transactional
@@ -106,6 +110,16 @@ public class MissionSchedulerService {
             robotRepository.save(selectedRobot);
 
             Mission savedMission = missionRepository.save(mission);
+
+            MissionAssignment assignment = new MissionAssignment(
+                    savedMission,
+                    selectedRobot,
+                    savedMission.getAssignmentGeneration(),
+                    now,
+                    "SCHEDULER"
+            );
+
+            missionAssignmentRepository.save(assignment);
 
             recordMissionEvent(
                     savedMission,

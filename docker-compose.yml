@@ -1,0 +1,83 @@
+services:
+  fleet-db:
+    image: postgres:16-alpine
+    container_name: robot-fleet-db
+    environment:
+      POSTGRES_DB: fleet_db
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}"
+    ports:
+      - "${FLEET_DB_HOST_PORT:-5433}:5432"
+    volumes:
+      - fleet_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d fleet_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  mission-db:
+    image: postgres:16-alpine
+    container_name: robot-mission-db
+    environment:
+      POSTGRES_DB: mission_db
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}"
+    ports:
+      - "${MISSION_DB_HOST_PORT:-5434}:5432"
+    volumes:
+      - mission_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d mission_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  fleet-service:
+    build:
+      context: ./fleet-service
+    container_name: robot-fleet-service
+    environment:
+      FLEET_SERVER_PORT: 8081
+      FLEET_DB_URL: jdbc:postgresql://fleet-db:5432/fleet_db
+      FLEET_DB_USERNAME: ${POSTGRES_USER:-postgres}
+      FLEET_DB_PASSWORD: "${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}"
+    ports:
+      - "${FLEET_SERVER_PORT:-8081}:8081"
+    depends_on:
+      fleet-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:8081/actuator/health | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 40s
+
+  mission-service:
+    build:
+      context: ./mission-service
+    container_name: robot-mission-service
+    environment:
+      MISSION_SERVER_PORT: 8082
+      MISSION_DB_URL: jdbc:postgresql://mission-db:5432/mission_db
+      MISSION_DB_USERNAME: ${POSTGRES_USER:-postgres}
+      MISSION_DB_PASSWORD: "${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}"
+      FLEET_SERVICE_BASE_URL: http://fleet-service:8081
+    ports:
+      - "${MISSION_SERVER_PORT:-8082}:8082"
+    depends_on:
+      mission-db:
+        condition: service_healthy
+      fleet-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:8082/actuator/health | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 40s
+
+volumes:
+  fleet_db_data:
+  mission_db_data:

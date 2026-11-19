@@ -28,9 +28,12 @@ import com.robotfleet.robot_fleet.RobotStatus;
 
 import com.robotfleet.robot_fleet.dto.MissionRequest;
 
+import com.robotfleet.robot_fleet.entity.MissionAssignment;
+
 import com.robotfleet.robot_fleet.repository.MissionRepository;
 import com.robotfleet.robot_fleet.repository.MissionEventRepository;
 import com.robotfleet.robot_fleet.repository.RobotRepository;
+import com.robotfleet.robot_fleet.repository.MissionAssignmentRepository;
 
 @Service
 public class MissionService {
@@ -38,15 +41,18 @@ public class MissionService {
     private final MissionRepository missionRepository;
     private final MissionEventRepository missionEventRepository;
     private final RobotRepository robotRepository;
+    private final MissionAssignmentRepository missionAssignmentRepository;
 
     public MissionService(
             MissionRepository missionRepository,
             MissionEventRepository missionEventRepository,
-            RobotRepository robotRepository) {
+            RobotRepository robotRepository,
+            MissionAssignmentRepository missionAssignmentRepository) {
 
         this.missionRepository = missionRepository;
         this.missionEventRepository = missionEventRepository;
         this.robotRepository = robotRepository;
+        this.missionAssignmentRepository = missionAssignmentRepository;
     }
 
     @Transactional
@@ -169,13 +175,13 @@ public class MissionService {
 
             case PENDING ->
                     newStatus == MissionStatus.CANCELLED;
+
             case ASSIGNED ->
                     newStatus == MissionStatus.IN_PROGRESS ||
                     newStatus == MissionStatus.FAILED ||
                     newStatus == MissionStatus.CANCELLED;
 
             case IN_PROGRESS ->
-                    newStatus == MissionStatus.COMPLETED ||
                     newStatus == MissionStatus.FAILED;
 
             case RECOVERY_PENDING,
@@ -193,6 +199,17 @@ public class MissionService {
         }
 
         mission.setStatus(newStatus);
+
+        if (newStatus == MissionStatus.FAILED) {
+
+            closeActiveAssignment(mission, "MISSION_FAILED");
+            releaseRobotAfterTerminalStatus(mission);
+
+        } else if (newStatus == MissionStatus.CANCELLED) {
+
+            closeActiveAssignment(mission, "MISSION_CANCELLED");
+            releaseRobotAfterTerminalStatus(mission);
+        }
 
         Mission savedMission = missionRepository.save(mission);
 
@@ -306,6 +323,16 @@ public class MissionService {
         robotRepository.save(robot);
 
         Mission savedMission = missionRepository.save(mission);
+
+        MissionAssignment assignment = new MissionAssignment(
+                savedMission,
+                robot,
+                savedMission.getAssignmentGeneration(),
+                Instant.now(),
+                actor != null && !actor.isBlank() ? actor : "SYSTEM"
+        );
+
+        missionAssignmentRepository.save(assignment);
 
         recordMissionEvent(
                 savedMission,
@@ -428,6 +455,8 @@ public class MissionService {
 
         mission.setStatus(MissionStatus.COMPLETED);
 
+        closeActiveAssignment(mission, "MISSION_COMPLETED");
+
         robot.setStatus(RobotStatus.IDLE);
         robot.setCurrentMissionId(null);
 
@@ -457,5 +486,39 @@ public class MissionService {
         }
 
         return missionRepository.findByAssignedRobot_Id(robotId);
+    }
+
+    private void closeActiveAssignment(
+            Mission mission,
+            String endReason) {
+
+        missionAssignmentRepository
+                .findByMission_IdAndEndedAtIsNull(mission.getId())
+                .ifPresent(assignment -> {
+                    assignment.endAssignment(Instant.now(), endReason);
+                    missionAssignmentRepository.save(assignment);
+                });
+    }
+
+    private void releaseRobotAfterTerminalStatus(Mission mission) {
+
+        Robot robot = mission.getAssignedRobot();
+
+        if (robot == null) {
+            return;
+        }
+
+        if (mission.getId().equals(robot.getCurrentMissionId())) {
+
+            robot.setCurrentMissionId(null);
+
+            if (robot.getStatus() == RobotStatus.BUSY
+                    && !robot.isSafetyHold()) {
+
+                robot.setStatus(RobotStatus.IDLE);
+            }
+
+            robotRepository.save(robot);
+        }
     }
 }

@@ -48,6 +48,25 @@ public class RobotTelemetryController {
                 .status(HttpStatus.CREATED)
                 .body(result);
     }
+    @GetMapping("/api/robots/telemetry/latest")
+    public List<TelemetryResponse> getLatestTelemetryForEachRobot() {
+
+        return telemetryService.getLatestTelemetryForEachRobot()
+                .stream()
+                .map(telemetry -> new TelemetryResponse(
+                        telemetry.getId(),
+                        telemetry.getSessionId(),
+                        telemetry.getSequenceNumber(),
+                        telemetry.getBatteryPercentage(),
+                        telemetry.getLocationX(),
+                        telemetry.getLocationY(),
+                        telemetry.getSpeed(),
+                        telemetry.getHealthStatus(),
+                        telemetry.getTimestamp(),
+                        telemetry.getReceivedAt()
+                ))
+                .toList();
+    }
     
 
 

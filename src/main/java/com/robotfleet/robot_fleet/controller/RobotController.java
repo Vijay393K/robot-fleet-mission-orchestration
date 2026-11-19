@@ -2,6 +2,8 @@ package com.robotfleet.robot_fleet.controller;
 
 
 import com.robotfleet.robot_fleet.Robot;
+import com.robotfleet.robot_fleet.service.MissionAssignmentService;
+import com.robotfleet.robot_fleet.dto.MissionAssignmentResponse;
 
 import com.robotfleet.robot_fleet.RobotStatus;
 import com.robotfleet.robot_fleet.RobotType;
@@ -36,6 +38,10 @@ import com.robotfleet.robot_fleet.dto.RobotReconciliationRequest;
 import com.robotfleet.robot_fleet.service.RobotReconciliationService;
 
 
+import com.robotfleet.robot_fleet.RobotHeartbeat;
+import com.robotfleet.robot_fleet.repository.RobotHeartbeatRepository;
+import java.util.LinkedHashMap;
+
 @RestController
 public class RobotController {
 
@@ -43,17 +49,24 @@ public class RobotController {
     private final RobotService robotService;
     private final HeartbeatService heartbeatService;
     private final RobotReconciliationService reconciliationService;
+    private final RobotHeartbeatRepository heartbeatRepository;
+    private final MissionAssignmentService missionAssignmentService;
+    
     
     public RobotController(
             RobotRepository robotRepository,
             RobotService robotService,
             HeartbeatService heartbeatService,
-            RobotReconciliationService reconciliationService) {
+            RobotReconciliationService reconciliationService,
+            RobotHeartbeatRepository heartbeatRepository,
+            MissionAssignmentService missionAssignmentService) {
 
         this.robotRepository = robotRepository;
         this.robotService = robotService;
         this.heartbeatService = heartbeatService;
         this.reconciliationService = reconciliationService;
+        this.heartbeatRepository = heartbeatRepository;
+        this.missionAssignmentService = missionAssignmentService;
     }
     @GetMapping("/")
     public String home() {
@@ -124,7 +137,15 @@ public class RobotController {
 
         return ResponseEntity.status(HttpStatus.CREATED).body(savedRobot);
     }
+    @GetMapping("/api/v1/robots/{robotId}/assignments")
+    public ResponseEntity<List<MissionAssignmentResponse>> getRobotAssignmentHistory(
+            @PathVariable UUID robotId) {
 
+        return ResponseEntity.ok(
+                missionAssignmentService.getRobotAssignmentHistory(robotId)
+        );
+    }
+    
     @PutMapping("/api/robots/{id}/status")
     public Robot updateRobotStatus(
             @PathVariable UUID id,
@@ -175,6 +196,43 @@ public class RobotController {
                 "status", robot.getStatus()
         );
     }
+    
+    
+    @GetMapping("/api/v1/robots/{robotId}/heartbeats")
+    public Map<String, Object> getRecentHeartbeats(
+            @PathVariable UUID robotId) {
+
+        robotRepository.findById(robotId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Robot not found"));
+
+        List<RobotHeartbeat> heartbeats =
+                heartbeatRepository.findTop20ByRobot_IdOrderByReceivedAtDesc(
+                        robotId);
+
+        List<Map<String, Object>> history = heartbeats.stream()
+                .map(heartbeat -> {
+                    Map<String, Object> record = new LinkedHashMap<>();
+
+                    record.put("id", heartbeat.getId());
+                    record.put("robotId", robotId);
+                    record.put("sessionId", heartbeat.getSessionId());
+                    record.put("sequenceNumber", heartbeat.getSequenceNumber());
+                    record.put("receivedAt", heartbeat.getReceivedAt());
+
+                    return record;
+                })
+                .toList();
+
+        return Map.of(
+                "robotId", robotId,
+                "count", history.size(),
+                "heartbeats", history
+        );
+    }
+    
+    
     @PostMapping("/api/v1/robots/{robotId}/reconcile")
     public Map<String, Object> reconcileRobot(
             @PathVariable UUID robotId,
